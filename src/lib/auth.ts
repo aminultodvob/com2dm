@@ -37,8 +37,19 @@ let handlers: {
   POST: (req: NextRequest) => Promise<Response>;
 };
 let auth: () => Promise<Session | null>;
-let signIn: (...args: unknown[]) => Promise<unknown>;
-let signOut: (...args: unknown[]) => Promise<unknown>;
+type SignInFn = typeof NextAuth extends (...args: unknown[]) => infer R
+  ? R extends { signIn: infer S }
+    ? S
+    : never
+  : never;
+type SignOutFn = typeof NextAuth extends (...args: unknown[]) => infer R
+  ? R extends { signOut: infer S }
+    ? S
+    : never
+  : never;
+
+let signIn: SignInFn;
+let signOut: SignOutFn;
 
 if (hasAuthEnv) {
   const nextAuth = NextAuth({
