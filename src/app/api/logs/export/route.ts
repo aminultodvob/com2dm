@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireApiWorkspace } from "@/lib/auth-helpers";
-
-export const dynamic = "force-dynamic";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const ctx = await requireApiWorkspace();
@@ -24,7 +24,7 @@ export async function GET() {
     "createdAt",
   ];
 
-  const rows = logs.map((log: any) => [
+  const rows = logs.map((log) => [
     log.recipientName ?? "",
     log.recipientId,
     log.platform,
@@ -34,7 +34,13 @@ export async function GET() {
   ]);
 
   const csv = [header, ...rows]
-    .map((row) => row.map((value: any) => `"${String(value).replace(/\"/g, '""')}"`).join(","))
+    .map((row) =>
+      row
+        .map((value: string | number | null | undefined) =>
+          `"${String(value ?? "").replace(/\"/g, '""')}"`
+        )
+        .join(",")
+    )
     .join("\n");
 
   return new NextResponse(csv, {

@@ -63,8 +63,8 @@ export async function POST(req: Request) {
         stripePriceId: priceId,
         tier,
         status: normalizeStatus(subscription.status),
-        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       },
       create: {
@@ -74,8 +74,8 @@ export async function POST(req: Request) {
         stripePriceId: priceId,
         tier,
         status: normalizeStatus(subscription.status),
-        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       },
     });
