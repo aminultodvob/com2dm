@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { getInboundQueue } from "@/lib/queue/client";
+import { processWebhookEvent } from "@/lib/automations/processor";
 
 export const dynamic = "force-dynamic";
 
@@ -46,20 +46,14 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // 2. Offload to BullMQ for async processing (non-blocking)
+    // 2. Process webhook synchronously/fire-and-forget (Serverless Architecture)
     try {
-      const queue = getInboundQueue();
-      await queue.add("process-meta-webhook", {
-        eventId: rawEvent.id,
-        payload
-      }, {
-        removeOnComplete: true,
-        attempts: 3,
-        backoff: { type: "exponential", delay: 1000 }
-      });
-    } catch (queueError) {
-      console.warn("Queue not available, event stored but not queued:", queueError);
-      // We don't fail the request here, as we have the raw event in DB
+      // Execute the processing without awaiting it immediately if possible
+      // to return 200 OK fast. But on Vercel, isolated promises might die. 
+      // Awaiting it is safe enough since DM logic usually takes < 2 seconds.
+      await processWebhookEvent(rawEvent.id);
+    } catch (processingError) {
+      console.error("Serverless processing failed:", processingError);
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
