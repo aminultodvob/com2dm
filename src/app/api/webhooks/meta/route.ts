@@ -15,11 +15,17 @@ export async function GET(req: NextRequest) {
   const challenge = searchParams.get("hub.challenge");
 
   if (mode === "subscribe" && token === env.META_VERIFY_TOKEN) {
-    console.log("Webhook Verified");
+    console.log("Webhook Verified via Meta");
     return new NextResponse(challenge);
   }
 
-  return new NextResponse("Forbidden", { status: 403 });
+  // If no params, it's probably someone hitting it manually.
+  // Return a success message to verify the endpoint is ALIVE.
+  return NextResponse.json({ 
+    status: "alive", 
+    message: "Com2DM Webhook Endpoint is active.",
+    note: "Use POST for Meta webhooks."
+  });
 }
 
 /**
