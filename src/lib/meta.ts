@@ -133,7 +133,8 @@ export async function fetchInstagramMedia(igId: string, accessToken: string) {
 export async function subscribePage(pageId: string, accessToken: string) {
   const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
   url.searchParams.set("access_token", accessToken);
-  url.searchParams.set("subscribed_fields", "feed,comments,mentions");
+  // 'comments' is not a valid Page field. 'feed' handles comments.
+  url.searchParams.set("subscribed_fields", "feed,messages,messaging_postbacks");
   const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
     const text = await res.text();
@@ -143,15 +144,9 @@ export async function subscribePage(pageId: string, accessToken: string) {
 }
 
 export async function subscribeInstagram(igId: string, accessToken: string) {
-  const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${igId}/subscribed_apps`);
-  url.searchParams.set("access_token", accessToken);
-  url.searchParams.set("subscribed_fields", "comments");
-  const res = await fetch(url, { method: "POST" });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Meta subscribe error ${res.status}: ${text}`);
-  }
-  return res.json() as Promise<{ success: boolean }>;
+  // Instagram specific accounts do not have a /subscribed_apps edge.
+  // Their webhooks are configured at the App Dashboard level under the "Instagram" topic.
+  return { success: true };
 }
 
 export async function upsertSocialConnection(input: {
