@@ -4,6 +4,8 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { generateSlug } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
