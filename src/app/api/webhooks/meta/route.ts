@@ -28,8 +28,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
+    console.log("META WEBHOOK RECEIVED:", JSON.stringify(payload, null, 2));
 
     const entryId = Array.isArray(payload?.entry) ? payload.entry[0]?.id : null;
+    console.log("ENTRY ID:", entryId);
     const asset = entryId
       ? await db.connectedAsset.findFirst({
           where: { externalAssetId: entryId, isActive: true },
