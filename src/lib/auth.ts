@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -18,19 +19,22 @@ const hasAuthEnv =
   Boolean(process.env.DATABASE_URL);
 
 const makeStubHandlers = () => ({
-  GET: async () =>
+  GET: async (_req: NextRequest) =>
     NextResponse.json(
       { error: "Auth not configured" },
       { status: 500 }
     ),
-  POST: async () =>
+  POST: async (_req: NextRequest) =>
     NextResponse.json(
       { error: "Auth not configured" },
       { status: 500 }
     ),
 });
 
-let handlers: { GET: () => Promise<Response>; POST: () => Promise<Response> };
+let handlers: {
+  GET: (req: NextRequest) => Promise<Response>;
+  POST: (req: NextRequest) => Promise<Response>;
+};
 let auth: () => Promise<unknown>;
 let signIn: (...args: unknown[]) => Promise<unknown>;
 let signOut: (...args: unknown[]) => Promise<unknown>;
