@@ -23,8 +23,15 @@ export default async function ConnectionsPage() {
 
   return (
     <ConnectedAssetsClient
-      socialConnections={socialConnections}
-      connectedAssets={connectedAssets}
+      socialConnections={socialConnections.map(sc => ({
+        ...sc,
+        connectedAt: sc.connectedAt.toISOString(),
+        lastSyncedAt: sc.lastSyncedAt?.toISOString() ?? null,
+      }))}
+      connectedAssets={connectedAssets.map(ca => ({
+        ...ca,
+        createdAt: ca.createdAt.toISOString(),
+      }))}
       metaAuthUrl={metaAuthUrl}
       workspaceId={workspace.id}
     />

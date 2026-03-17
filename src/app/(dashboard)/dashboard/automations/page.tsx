@@ -20,7 +20,12 @@ export default async function AutomationsPage() {
 
   return (
     <AutomationsClient 
-      initialRules={rules} 
+      initialRules={rules.map(rule => ({
+        ...rule,
+        createdAt: rule.createdAt.toISOString() // Keep as Date if AutomationsClient can handle it, or stringify if needed.
+        // Prisma returns Date objects in Server Components. 
+        // We'll update the interface to Date.
+      }))} 
     />
   );
 }

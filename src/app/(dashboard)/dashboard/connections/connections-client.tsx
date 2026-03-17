@@ -22,8 +22,8 @@ interface SocialConnection {
   platform: string;
   displayName: string | null;
   isActive: boolean;
-  connectedAt: Date;
-  lastSyncedAt: Date | null;
+  connectedAt: string;
+  lastSyncedAt: string | null;
 }
 
 interface ConnectedAsset {
@@ -34,7 +34,7 @@ interface ConnectedAsset {
   isActive: boolean;
   webhookSubscribed: boolean;
   pictureUrl: string | null;
-  createdAt: Date;
+  createdAt: string;
 }
 
 interface Props {
