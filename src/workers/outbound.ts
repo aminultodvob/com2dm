@@ -18,7 +18,7 @@ async function processOutbound(jobId: string, assetId: string) {
 
   try {
     const response = await sendMetaMessage({
-      platform: job.platform,
+      platform: job.platform as "FACEBOOK" | "INSTAGRAM",
       pageOrIgId: asset.externalAssetId,
       recipientId: job.recipientId,
       message: job.messageBody,

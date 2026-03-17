@@ -38,7 +38,7 @@ export async function getWorkspace(userId: string) {
  */
 export async function requireWorkspace() {
   const user = await requireAuth();
-  const workspace = await getWorkspace(user.id);
+  const workspace = await getWorkspace(user.id as string);
   if (!workspace) redirect("/dashboard/onboarding");
   return { user, workspace };
 }
@@ -49,7 +49,7 @@ export async function requireWorkspace() {
 export async function requireApiWorkspace() {
   const user = await requireApiAuth();
   if (!user?.id) return null;
-  const workspace = await getWorkspace(user.id);
+  const workspace = await getWorkspace(user.id as string);
   if (!workspace) return null;
   return { user, workspace };
 }
