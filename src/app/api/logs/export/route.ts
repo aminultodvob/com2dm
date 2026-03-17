@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiWorkspace } from "@/lib/auth-helpers";
+
+export const dynamic = "force-dynamic";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/utils";
 

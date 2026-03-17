@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireApiWorkspace } from "@/lib/auth-helpers";
 
+export const dynamic = "force-dynamic";
+
 const updateSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),

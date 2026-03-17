@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiWorkspace } from "@/lib/auth-helpers";
 
+export const dynamic = "force-dynamic";
+
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ assetId: string }> }

@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { requireApiAuth } from "@/lib/auth-helpers";
 import { generateSlug } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 const schema = z.object({
   name: z.string().min(2),
 });

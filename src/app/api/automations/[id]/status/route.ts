@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireApiWorkspace } from "@/lib/auth-helpers";
 
+export const dynamic = "force-dynamic";
+
 const schema = z.object({
   status: z.enum(["ACTIVE", "PAUSED"]),
 });
