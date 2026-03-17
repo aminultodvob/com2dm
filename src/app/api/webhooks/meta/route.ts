@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getInboundQueue } from "@/lib/queue/client";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET - Webhook Verification
  */
