@@ -1,0 +1,471 @@
+// Comment2DM - Prisma Schema
+// Multi-tenant SaaS for comment-triggered DM automation
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  BOTH
+}
+
+enum MatchMode {
+  CONTAINS
+  EXACT
+  STARTS_WITH
+}
+
+enum RuleStatus {
+  ACTIVE
+  PAUSED
+  DRAFT
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+  DUPLICATE_PREVENTED
+  RATE_LIMITED
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+  DEAD
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+  INCOMPLETE
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum AssetType {
+  FACEBOOK_PAGE
+  INSTAGRAM_ACCOUNT
+}
+
+// ============================================
+// AUTH TABLES (NextAuth / Auth.js)
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // hashed, null for OAuth users
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// MULTI-TENANT CORE
+// ============================================
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime? // soft-delete
+
+  memberships          Membership[]
+  socialConnections    SocialConnection[]
+  connectedAssets      ConnectedAsset[]
+  automationRules      AutomationRule[]
+  messageTemplates     MessageTemplate[]
+  webhookEvents        WebhookEventRaw[]
+  triggerEventLogs     TriggerEventLog[]
+  outboundMessageJobs  OutboundMessageJob[]
+  deliveryLogs         MessageDeliveryLog[]
+  subscription         Subscription?
+  usageRecords         UsageRecord[]
+  auditLogs            AuditLog[]
+
+  @@map("workspaces")
+}
+
+model Membership {
+  id          String     @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        MemberRole @default(MEMBER)
+  joinedAt    DateTime   @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@map("memberships")
+}
+
+// ============================================
+// SOCIAL CONNECTIONS
+// ============================================
+
+model SocialConnection {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  platform         Platform
+  externalUserId   String   // Meta user ID
+  displayName      String?
+  accessToken      String   @db.Text
+  refreshToken     String?  @db.Text
+  tokenExpiresAt   DateTime?
+  scopes           String[] // granted OAuth scopes
+  isActive         Boolean  @default(true)
+  lastSyncedAt     DateTime?
+  connectedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connectedAssets ConnectedAsset[]
+
+  @@unique([workspaceId, platform, externalUserId])
+  @@map("social_connections")
+}
+
+model ConnectedAsset {
+  id                   String    @id @default(cuid())
+  workspaceId          String
+  socialConnectionId   String
+  assetType            AssetType
+  externalAssetId      String    // Page ID or IG Account ID
+  name                 String
+  username             String?
+  pictureUrl           String?
+  accessToken          String    @db.Text // page-level access token
+  instagramAccountId   String?  // linked IG business account ID
+  isActive             Boolean   @default(true)
+  webhookSubscribed    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  socialConnection SocialConnection @relation(fields: [socialConnectionId], references: [id], onDelete: Cascade)
+  automationRules  AutomationRule[]
+
+  @@unique([workspaceId, assetType, externalAssetId])
+  @@map("connected_assets")
+}
+
+// ============================================
+// AUTOMATION ENGINE
+// ============================================
+
+model AutomationRule {
+  id               String     @id @default(cuid())
+  workspaceId      String
+  connectedAssetId String?    // null = applies to all assets
+  name             String
+  description      String?
+  platform         Platform
+  matchMode        MatchMode  @default(CONTAINS)
+  status           RuleStatus @default(ACTIVE)
+  priority         Int        @default(0)
+  applyToAllPosts  Boolean    @default(true)
+  // Cooldown: prevent spamming
+  cooldownHours    Int        @default(24) // 0 = once per post per user
+  caseSensitive    Boolean    @default(false)
+  // Stats denormalized for performance
+  totalTriggers    Int        @default(0)
+  totalSent        Int        @default(0)
+  totalFailed      Int        @default(0)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?  // soft-delete
+
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connectedAsset   ConnectedAsset?    @relation(fields: [connectedAssetId], references: [id], onDelete: SetNull)
+  keywords         RuleKeyword[]
+  messageTemplate  MessageTemplate?   @relation(fields: [messageTemplateId], references: [id])
+  messageTemplateId String?
+  triggerEventLogs TriggerEventLog[]
+  outboundJobs     OutboundMessageJob[]
+
+  @@index([workspaceId, status])
+  @@map("automation_rules")
+}
+
+model RuleKeyword {
+  id         String   @id @default(cuid())
+  ruleId     String
+  keyword    String
+  createdAt  DateTime @default(now())
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, keyword])
+  @@map("rule_keywords")
+}
+
+model MessageTemplate {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  body        String   @db.Text
+  // Available vars: {{commenter_name}}, {{keyword}}, {{post_link}}, {{workspace_name}}
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  rules     AutomationRule[]
+
+  @@map("message_templates")
+}
+
+// ============================================
+// WEBHOOK EVENTS
+// ============================================
+
+model WebhookEventRaw {
+  id          String   @id @default(cuid())
+  workspaceId String?  // null if we can't resolve workspace yet
+  platform    Platform
+  eventType   String   // e.g. "comment", "mention"
+  externalId  String?  // Meta's event ID for deduplication
+  payload     Json     // raw webhook body
+  processed   Boolean  @default(false)
+  processedAt DateTime?
+  error       String?
+  receivedAt  DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([platform, externalId])
+  @@index([processed, receivedAt])
+  @@map("webhook_events_raw")
+}
+
+// ============================================
+// TRIGGER / JOB PIPELINE
+// ============================================
+
+model TriggerEventLog {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  ruleId           String?
+  platform         Platform
+  postId           String
+  commentId        String
+  commenterId      String
+  commenterName    String?
+  commentText      String   @db.Text
+  matchedKeyword   String?
+  wasMatched       Boolean  @default(false)
+  skippedReason    String?
+  processedAt      DateTime @default(now())
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  rule      AutomationRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, processedAt])
+  @@index([workspaceId, platform])
+  @@map("trigger_event_logs")
+}
+
+model OutboundMessageJob {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  ruleId           String?
+  platform         Platform
+  recipientId      String    // Meta user ID to DM
+  recipientName    String?
+  postId           String
+  commentId        String
+  messageBody      String    @db.Text
+  idempotencyKey   String    @unique // prevent double-send
+  status           JobStatus @default(PENDING)
+  retryCount       Int       @default(0)
+  maxRetries       Int       @default(3)
+  scheduledAt      DateTime  @default(now())
+  processedAt      DateTime?
+  completedAt      DateTime?
+  error            String?
+  bullJobId        String?   // BullMQ job ID reference
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  rule         AutomationRule?    @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  deliveryLogs MessageDeliveryLog[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, platform])
+  @@map("outbound_message_jobs")
+}
+
+model MessageDeliveryLog {
+  id             String         @id @default(cuid())
+  workspaceId    String
+  jobId          String
+  platform       Platform
+  status         DeliveryStatus
+  messagePreview String?
+  postId         String
+  commentId      String
+  recipientId    String
+  recipientName  String?
+  matchedKeyword String?
+  ruleId         String?
+  ruleName       String?
+  apiResponse    Json?          // store Meta API response or error
+  failureReason  String?
+  retryCount     Int            @default(0)
+  sentAt         DateTime?
+  createdAt      DateTime       @default(now())
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  job       OutboundMessageJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, platform])
+  @@map("message_delivery_logs")
+}
+
+// ============================================
+// BILLING
+// ============================================
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  workspaceId          String             @unique
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  tier                 SubscriptionTier   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  trialEndsAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model UsageRecord {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  periodStart      DateTime
+  periodEnd        DateTime
+  commentsProcessed Int      @default(0)
+  matchesMade      Int      @default(0)
+  messagesSent     Int      @default(0)
+  messagesFailed   Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, periodStart])
+  @@map("usage_records")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String?
+  action      String   // e.g. "rule.created", "connection.deleted"
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("audit_logs")
+}
