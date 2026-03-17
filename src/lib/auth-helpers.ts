@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import type { Session } from "next-auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 
@@ -7,7 +8,7 @@ import { redirect } from "next/navigation";
  * Redirects to /login if not authenticated.
  */
 export async function requireAuth() {
-  const session = await auth();
+  const session = (await auth()) as Session | null;
   if (!session?.user?.id) redirect("/login");
   return session.user;
 }
@@ -16,7 +17,7 @@ export async function requireAuth() {
  * API-friendly auth helper. Returns null if unauthenticated.
  */
 export async function requireApiAuth() {
-  const session = await auth();
+  const session = (await auth()) as Session | null;
   if (!session?.user?.id) return null;
   return session.user;
 }
