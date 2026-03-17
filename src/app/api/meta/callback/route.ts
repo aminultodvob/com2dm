@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { db } from "@/lib/db";
 import { requireApiAuth } from "@/lib/auth-helpers";
+
+export const dynamic = "force-dynamic";
 import { verifySignedPayload } from "@/lib/crypto";
 import {
   exchangeCodeForToken,

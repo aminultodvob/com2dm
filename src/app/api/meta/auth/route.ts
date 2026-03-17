@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth-helpers";
+
+export const dynamic = "force-dynamic";
 import { env } from "@/lib/env";
 import { signPayload } from "@/lib/crypto";
 import { buildMetaAuthUrl } from "@/lib/meta";

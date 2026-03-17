@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiWorkspace } from "@/lib/auth-helpers";
+
+export const dynamic = "force-dynamic";
 import { env } from "@/lib/env";
 import { getStripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
