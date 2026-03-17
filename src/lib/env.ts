@@ -13,7 +13,7 @@ const envSchema = z.object({
   META_APP_SECRET: z.string().optional(),
   META_VERIFY_TOKEN: z.string().optional(),
   META_REDIRECT_URI: z.string().optional(),
-  META_GRAPH_API_VERSION: z.string().default("v19.0"),
+  META_GRAPH_API_VERSION: z.string().default("v25.0"),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string().optional(),
