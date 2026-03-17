@@ -32,9 +32,12 @@ export async function GET(req: NextRequest) {
  * POST - Event Ingestion
  */
 export async function POST(req: NextRequest) {
+  console.log(`[META WEBHOOK] Incoming Request: ${req.method} ${req.url}`);
+  console.log(`[META WEBHOOK] Headers:`, JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
+
   try {
     const payload = await req.json();
-    console.log("META WEBHOOK RECEIVED:", JSON.stringify(payload, null, 2));
+    console.log("META WEBHOOK RECEIVED PAYLOAD:", JSON.stringify(payload, null, 2));
 
     const entryId = Array.isArray(payload?.entry) ? payload.entry[0]?.id : null;
     console.log("ENTRY ID:", entryId);
