@@ -8,13 +8,14 @@ export const metadata: Metadata = { title: "Edit Automation" };
 export default async function EditAutomationPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const { workspace } = await requireWorkspace();
 
   const [rule, assets] = await Promise.all([
     db.automationRule.findFirst({
-      where: { id: params.id, workspaceId: workspace.id, deletedAt: null },
+      where: { id, workspaceId: workspace.id, deletedAt: null },
       include: { keywords: true, messageTemplate: true },
     }),
     db.connectedAsset.findMany({

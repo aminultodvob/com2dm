@@ -16,13 +16,14 @@ const updateSchema = z.object({
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const ctx = await requireApiWorkspace();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const rule = await db.automationRule.findFirst({
-    where: { id: params.id, workspaceId: ctx.workspace.id, deletedAt: null },
+    where: { id, workspaceId: ctx.workspace.id, deletedAt: null },
     include: { keywords: true, connectedAsset: true, messageTemplate: true },
   });
 
@@ -32,8 +33,9 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const ctx = await requireApiWorkspace();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -53,7 +55,7 @@ export async function PUT(
   }
 
   const existing = await db.automationRule.findFirst({
-    where: { id: params.id, workspaceId: ctx.workspace.id, deletedAt: null },
+    where: { id, workspaceId: ctx.workspace.id, deletedAt: null },
     include: { keywords: true, messageTemplate: true },
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -95,13 +97,14 @@ export async function PUT(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const ctx = await requireApiWorkspace();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const rule = await db.automationRule.findFirst({
-    where: { id: params.id, workspaceId: ctx.workspace.id, deletedAt: null },
+    where: { id, workspaceId: ctx.workspace.id, deletedAt: null },
   });
   if (!rule) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
