@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "worker:inbound": "tsx src/workers/inbound.ts",
-    "worker:outbound": "tsx src/workers/outbound.ts"
+    "worker:outbound": "tsx src/workers/outbound.ts",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
