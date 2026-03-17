@@ -36,6 +36,11 @@ export async function findMatchingRules(ctx: CommentContext) {
   const matchingRules = [];
 
   for (const rule of rules) {
+    // 1.5 Specific Post Check
+    if (!rule.applyToAllPosts && rule.specificPostId && rule.specificPostId !== ctx.postId) {
+      continue;
+    }
+
     const isMatched = rule.keywords.some(kw => {
       const keyword = kw.keyword.trim();
       const comment = rule.caseSensitive

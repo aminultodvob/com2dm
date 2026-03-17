@@ -12,6 +12,9 @@ const updateSchema = z.object({
   matchMode: z.enum(["CONTAINS", "EXACT", "STARTS_WITH"]),
   cooldownHours: z.number().int().min(0).max(168),
   connectedAssetId: z.string().nullable().optional(),
+  applyToAllPosts: z.boolean().default(true),
+  specificPostId: z.string().nullable().optional(),
+  specificPostUrl: z.string().nullable().optional(),
   keywords: z.array(z.string().min(1)).min(1),
   messageBody: z.string().min(1),
 });
@@ -86,6 +89,9 @@ export async function PUT(
       platform: parsed.data.platform,
       matchMode: parsed.data.matchMode,
       cooldownHours: parsed.data.cooldownHours,
+      applyToAllPosts: parsed.data.applyToAllPosts,
+      specificPostId: parsed.data.specificPostId ?? null,
+      specificPostUrl: parsed.data.specificPostUrl ?? null,
       messageTemplateId: template.id,
       keywords: {
         create: parsed.data.keywords.map((keyword) => ({ keyword })),

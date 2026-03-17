@@ -98,6 +98,38 @@ export async function fetchInstagramAccount(
   });
 }
 
+export type FacebookPost = {
+  id: string;
+  message?: string;
+  created_time: string;
+  full_picture?: string;
+  permalink_url: string;
+};
+
+export async function fetchPagePosts(pageId: string, accessToken: string) {
+  return graphRequest<{ data: FacebookPost[] }>(`/${pageId}/posts`, {
+    fields: "id,message,created_time,full_picture,permalink_url",
+    limit: "20",
+    access_token: accessToken,
+  });
+}
+
+export type InstagramMedia = {
+  id: string;
+  caption?: string;
+  media_url?: string;
+  permalink: string;
+  timestamp: string;
+};
+
+export async function fetchInstagramMedia(igId: string, accessToken: string) {
+  return graphRequest<{ data: InstagramMedia[] }>(`/${igId}/media`, {
+    fields: "id,caption,media_url,permalink,timestamp",
+    limit: "20",
+    access_token: accessToken,
+  });
+}
+
 export async function subscribePage(pageId: string, accessToken: string) {
   const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
   url.searchParams.set("access_token", accessToken);

@@ -12,6 +12,9 @@ const createSchema = z.object({
   matchMode: z.enum(["CONTAINS", "EXACT", "STARTS_WITH"]),
   cooldownHours: z.number().int().min(0).max(168),
   connectedAssetId: z.string().nullable().optional(),
+  applyToAllPosts: z.boolean().default(true),
+  specificPostId: z.string().nullable().optional(),
+  specificPostUrl: z.string().nullable().optional(),
   keywords: z.array(z.string().min(1)).min(1),
   messageBody: z.string().min(1),
 });
@@ -66,6 +69,9 @@ export async function POST(req: Request) {
       platform: data.platform,
       matchMode: data.matchMode,
       cooldownHours: data.cooldownHours,
+      applyToAllPosts: data.applyToAllPosts,
+      specificPostId: data.specificPostId ?? null,
+      specificPostUrl: data.specificPostUrl ?? null,
       messageTemplateId: template.id,
       keywords: {
         create: data.keywords.map((keyword) => ({ keyword })),

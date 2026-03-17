@@ -246,6 +246,8 @@ model AutomationRule {
   status           RuleStatus @default(ACTIVE)
   priority         Int        @default(0)
   applyToAllPosts  Boolean    @default(true)
+  specificPostId   String?
+  specificPostUrl  String?    @db.Text
   // Cooldown: prevent spamming
   cooldownHours    Int        @default(24) // 0 = once per post per user
   caseSensitive    Boolean    @default(false)
