@@ -43,6 +43,11 @@ export async function POST(req: Request) {
     }
   };
 
+  type SubscriptionWithPeriod = Stripe.Subscription & {
+    current_period_start: number;
+    current_period_end: number;
+  };
+
   const handleSubscription = async (subscription: Stripe.Subscription) => {
     const workspaceId = subscription.metadata.workspaceId;
     if (!workspaceId) return;
@@ -55,6 +60,9 @@ export async function POST(req: Request) {
           ? "PRO"
           : "FREE";
 
+    const periodStart = (subscription as SubscriptionWithPeriod).current_period_start;
+    const periodEnd = (subscription as SubscriptionWithPeriod).current_period_end;
+
     await db.subscription.upsert({
       where: { workspaceId },
       update: {
@@ -63,8 +71,8 @@ export async function POST(req: Request) {
         stripePriceId: priceId,
         tier,
         status: normalizeStatus(subscription.status),
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date(periodStart * 1000),
+        currentPeriodEnd: new Date(periodEnd * 1000),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       },
       create: {
@@ -74,8 +82,8 @@ export async function POST(req: Request) {
         stripePriceId: priceId,
         tier,
         status: normalizeStatus(subscription.status),
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date(periodStart * 1000),
+        currentPeriodEnd: new Date(periodEnd * 1000),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       },
     });
