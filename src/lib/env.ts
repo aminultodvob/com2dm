@@ -2,10 +2,10 @@ import { z } from "zod";
 
 const envSchema = z.object({
   // Database
-  DATABASE_URL: z.string().default("postgresql://postgres:postgres@localhost:5432/postgres"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
   // Auth
-  AUTH_SECRET: z.string().default("fallback-secret-for-build"),
+  AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
   NEXTAUTH_URL: z.string().url().optional(),
 
   // Meta
@@ -37,31 +37,19 @@ const envSchema = z.object({
 
 type Env = z.infer<typeof envSchema>;
 
-const isBuildTime = 
-  process.env.NEXT_PHASE === "phase-production-build" || 
-  process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
-
 function validateEnv(): Env {
   const parsed = envSchema.safeParse(process.env);
 
   if (!parsed.success) {
-    if (isBuildTime) {
-      console.warn("⚠️ Environment validation skipped during build time.");
-      // Return a partial object that satisfies the type system enough for build
-      return {
-        DATABASE_URL: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres",
-        AUTH_SECRET: process.env.AUTH_SECRET || "fallback-secret-for-build",
-        NEXT_PUBLIC_APP_URL: "http://localhost:3000",
-        NEXT_PUBLIC_APP_NAME: "Comment2DM",
-        NODE_ENV: "production",
-        META_GRAPH_API_VERSION: "v19.0",
-        REDIS_URL: "redis://localhost:6379",
-      } as Env;
-    }
     console.error(
       "❌ Invalid environment variables:",
       parsed.error.flatten().fieldErrors
     );
+    // During build, throw a non-fatal warning rather than crashing
+    if (process.env.NEXT_PHASE === "phase-production-build") {
+      console.warn("⚠️ Skipping strict env validation during build phase.");
+      return process.env as unknown as Env;
+    }
     throw new Error("Invalid environment variables");
   }
 
