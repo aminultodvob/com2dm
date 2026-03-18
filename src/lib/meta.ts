@@ -167,57 +167,21 @@ export async function subscribeInstagram(input: {
   accessToken: string;
   instagramAccountId?: string | null;
 }) {
-  const attempts: string[] = [];
-
-  const candidates: Array<{
-    objectId: string;
-    subscribedFields?: string;
-    label: string;
-  }> = [];
-
-  if (input.instagramAccountId) {
-    candidates.push({
-      objectId: input.instagramAccountId,
-      subscribedFields: "comments,mentions,messages",
-      label: "instagram-account",
-    });
+  if (!input.instagramAccountId) {
+    return {
+      success: false,
+      targetId: input.pageId,
+      strategy: "no-instagram-account",
+    };
   }
 
-  candidates.push({
-    objectId: input.pageId,
-    subscribedFields: "instagram_comments,instagram_mentions,instagram_messages",
-    label: "instagram-via-page",
-  });
-
-  if (input.instagramAccountId) {
-    candidates.push({
-      objectId: input.instagramAccountId,
-      label: "instagram-account-fallback",
-    });
-  }
-
-  for (const candidate of candidates) {
-    try {
-      const response = await subscribeToMetaObject({
-        objectId: candidate.objectId,
-        accessToken: input.accessToken,
-        subscribedFields: candidate.subscribedFields,
-        label: candidate.label,
-      });
-
-      return {
-        success: response.success === true,
-        targetId: candidate.objectId,
-        strategy: candidate.label,
-      };
-    } catch (error) {
-      attempts.push(String(error));
-    }
-  }
-
-  throw new Error(
-    `Meta subscribe Instagram failed after ${candidates.length} attempt(s): ${attempts.join(" | ")}`
-  );
+  // Instagram webhook fields are configured at the Meta App Dashboard level.
+  // We only need the linked Facebook Page to be connected with a valid page token.
+  return {
+    success: true,
+    targetId: input.instagramAccountId,
+    strategy: "app-dashboard-managed",
+  };
 }
 
 export async function upsertSocialConnection(input: {
