@@ -31,6 +31,51 @@ type MetaPayload = {
   entry?: MetaEntry[];
 };
 
+async function resolveAssetForEvent(event: CommentEvent) {
+  if (event.platform === "FACEBOOK") {
+    return db.connectedAsset.findFirst({
+      where: {
+        assetType: "FACEBOOK_PAGE",
+        externalAssetId: event.assetExternalId,
+        isActive: true,
+      },
+      include: { workspace: { include: { subscription: true } } },
+    });
+  }
+
+  const directInstagramAsset = await db.connectedAsset.findFirst({
+    where: {
+      assetType: "INSTAGRAM_ACCOUNT",
+      externalAssetId: event.assetExternalId,
+      isActive: true,
+    },
+    include: { workspace: { include: { subscription: true } } },
+  });
+  if (directInstagramAsset) return directInstagramAsset;
+
+  const relatedPageAsset = await db.connectedAsset.findFirst({
+    where: {
+      assetType: "FACEBOOK_PAGE",
+      OR: [
+        { externalAssetId: event.assetExternalId },
+        { instagramAccountId: event.assetExternalId },
+      ],
+      isActive: true,
+    },
+    include: { workspace: { include: { subscription: true } } },
+  });
+  if (!relatedPageAsset?.instagramAccountId) return relatedPageAsset;
+
+  return db.connectedAsset.findFirst({
+    where: {
+      assetType: "INSTAGRAM_ACCOUNT",
+      externalAssetId: relatedPageAsset.instagramAccountId,
+      isActive: true,
+    },
+    include: { workspace: { include: { subscription: true } } },
+  });
+}
+
 function resolveMatchedKeyword(
   rule: { matchMode: string; caseSensitive: boolean; keywords: { keyword: string }[] },
   commentText: string
@@ -103,13 +148,24 @@ export async function processWebhookEvent(rawEventId: string) {
     const events = extractEvents(raw.payload as MetaPayload);
 
     for (const event of events) {
-      const asset = await db.connectedAsset.findFirst({
-        where: { externalAssetId: event.assetExternalId, isActive: true },
-        include: { workspace: { include: { subscription: true } } },
-      });
+      const asset = await resolveAssetForEvent(event);
 
       if (!asset) {
-        // Connected asset not found, mark skipped
+        if (raw.workspaceId) {
+          await db.triggerEventLog.create({
+            data: {
+              workspaceId: raw.workspaceId,
+              platform: event.platform,
+              postId: event.postId,
+              commentId: event.commentId,
+              commenterId: event.commenterId,
+              commenterName: event.commenterName ?? null,
+              commentText: event.commentText,
+              wasMatched: false,
+              skippedReason: "connected_asset_not_found",
+            },
+          });
+        }
         continue;
       }
 

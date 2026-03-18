@@ -263,13 +263,37 @@ export async function sendMetaMessage(input: {
   message: string;
   accessToken: string;
 }) {
+  if (input.commentId) {
+    const privateReplyUrl = new URL(
+      `${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${input.commentId}/private_replies`
+    );
+    privateReplyUrl.searchParams.set("access_token", input.accessToken);
+
+    const privateReplyRes = await fetch(privateReplyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: input.message,
+      }),
+    });
+
+    const privateReplyJson = await privateReplyRes.json();
+    if (!privateReplyRes.ok) {
+      throw new Error(
+        `Meta private reply error ${privateReplyRes.status}: ${JSON.stringify(
+          privateReplyJson
+        )}`
+      );
+    }
+    return privateReplyJson;
+  }
+
   const url = new URL(
     `${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${input.pageOrIgId}/messages`
   );
   url.searchParams.set("access_token", input.accessToken);
 
-  // If commentId is provided, we use the Private Replies feature by specifying comment_id instead of id
-  const recipient = input.commentId ? { comment_id: input.commentId } : { id: input.recipientId };
+  const recipient = { id: input.recipientId };
   
   const body: Record<string, unknown> = {
     recipient,
