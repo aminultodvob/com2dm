@@ -41,6 +41,10 @@ export async function POST(req: NextRequest) {
 
     const sampleField =
       typeof payload?.sample?.field === "string" ? payload.sample.field : null;
+    const sampleValue =
+      payload?.sample?.value && typeof payload.sample.value === "object"
+        ? (payload.sample.value as Record<string, unknown>)
+        : null;
     const inferredObject =
       payload?.object ??
       (sampleField === "comments" ||
@@ -49,7 +53,11 @@ export async function POST(req: NextRequest) {
       sampleField === "instagram_messages"
         ? "instagram"
         : undefined);
-    const entryId = Array.isArray(payload?.entry) ? payload.entry[0]?.id : null;
+    const sampleFrom = sampleValue?.from as { id?: string } | undefined;
+    const sampleRecipient = sampleValue?.recipient as { id?: string } | undefined;
+    const entryId = Array.isArray(payload?.entry)
+      ? payload.entry[0]?.id
+      : sampleRecipient?.id ?? sampleFrom?.id ?? null;
     const isInstagram = inferredObject === "instagram";
     console.log("ENTRY ID:", entryId, "| Platform:", isInstagram ? "instagram" : "facebook/page");
 
