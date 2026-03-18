@@ -35,7 +35,11 @@ export async function POST() {
 
       // If this page has a linked IG account, also subscribe for IG webhooks
       if (asset.instagramAccountId) {
-        const igResp = await subscribeInstagram(asset.externalAssetId, asset.accessToken);
+        const igResp = await subscribeInstagram({
+          pageId: asset.externalAssetId,
+          instagramAccountId: asset.instagramAccountId,
+          accessToken: asset.accessToken,
+        });
         igOk = igResp.success === true;
       } else {
         igOk = true; // No IG account linked, nothing to subscribe
@@ -58,7 +62,7 @@ export async function POST() {
         });
       }
     } catch (err) {
-      error = String(err);
+      error = err instanceof Error ? err.message : String(err);
       console.error(`[Resubscribe] Failed for asset ${asset.id}:`, err);
     }
 

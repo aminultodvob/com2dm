@@ -131,35 +131,93 @@ export async function fetchInstagramMedia(igId: string, accessToken: string) {
 }
 
 export async function subscribePage(pageId: string, accessToken: string) {
-  const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
-  url.searchParams.set("access_token", accessToken);
-  url.searchParams.set("subscribed_fields", "feed,messages,messaging_postbacks");
-  const res = await fetch(url, { method: "POST" });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Meta subscribe page error ${res.status}: ${text}`);
-  }
-  return res.json() as Promise<{ success: boolean }>;
+  return subscribeToMetaObject({
+    objectId: pageId,
+    accessToken,
+    subscribedFields: "feed,messages,messaging_postbacks",
+    label: "page",
+  });
 }
 
-/**
- * Subscribe a Facebook Page for Instagram webhooks.
- * Instagram comment/DM webhooks are delivered via the linked Facebook Page's subscription.
- * We call /subscribed_apps on the PAGE (not the IG account) with instagram-specific fields.
- */
-export async function subscribeInstagram(pageId: string, accessToken: string) {
-  const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
-  url.searchParams.set("access_token", accessToken);
-  url.searchParams.set(
-    "subscribed_fields",
-    "instagram_comments,instagram_mentions,instagram_messages"
+async function subscribeToMetaObject(input: {
+  objectId: string;
+  accessToken: string;
+  label: string;
+  subscribedFields?: string;
+}) {
+  const url = new URL(
+    `${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${input.objectId}/subscribed_apps`
   );
+  url.searchParams.set("access_token", input.accessToken);
+  if (input.subscribedFields) {
+    url.searchParams.set("subscribed_fields", input.subscribedFields);
+  }
+
   const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Meta subscribe Instagram error ${res.status}: ${text}`);
+    throw new Error(`Meta subscribe ${input.label} error ${res.status}: ${text}`);
   }
-  return res.json() as Promise<{ success: boolean }>;
+
+  return (await res.json()) as { success: boolean };
+}
+
+export async function subscribeInstagram(input: {
+  pageId: string;
+  accessToken: string;
+  instagramAccountId?: string | null;
+}) {
+  const attempts: string[] = [];
+
+  const candidates: Array<{
+    objectId: string;
+    subscribedFields?: string;
+    label: string;
+  }> = [];
+
+  if (input.instagramAccountId) {
+    candidates.push({
+      objectId: input.instagramAccountId,
+      subscribedFields: "comments,mentions,messages",
+      label: "instagram-account",
+    });
+  }
+
+  candidates.push({
+    objectId: input.pageId,
+    subscribedFields: "instagram_comments,instagram_mentions,instagram_messages",
+    label: "instagram-via-page",
+  });
+
+  if (input.instagramAccountId) {
+    candidates.push({
+      objectId: input.instagramAccountId,
+      label: "instagram-account-fallback",
+    });
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const response = await subscribeToMetaObject({
+        objectId: candidate.objectId,
+        accessToken: input.accessToken,
+        subscribedFields: candidate.subscribedFields,
+        label: candidate.label,
+      });
+
+      return {
+        success: response.success === true,
+        targetId: candidate.objectId,
+        strategy: candidate.label,
+      };
+    } catch (error) {
+      attempts.push(String(error));
+    }
+  }
+
+  throw new Error(
+    `Meta subscribe Instagram failed after ${candidates.length} attempt(s): ${attempts.join(" | ")}`
+  );
 }
 
 export async function upsertSocialConnection(input: {

@@ -99,8 +99,10 @@ export function ConnectedAssetsClient({
             variant: "success",
           });
         } else {
+          const firstError = failed[0]?.error ?? "Unknown Meta error";
           toast({
-            title: `${failed.length} page(s) failed. Check console.`,
+            title: `${failed.length} page(s) failed`,
+            description: firstError,
             variant: "error",
           });
           console.error("Resubscribe failures:", failed);
