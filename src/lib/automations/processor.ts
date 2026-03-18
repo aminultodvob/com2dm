@@ -493,31 +493,11 @@ async function processOutboundMessage(jobId: string, assetId: string) {
   if (!asset) return;
 
   try {
-    // IMPORTANT: For Instagram, DMs must be sent via the linked Facebook Page's endpoint:
-    //   POST /{page_id}/messages  (with page access token)
-    // The IG asset's externalAssetId is the IG Account ID, NOT the page ID.
-    // We resolve the correct page ID + token from the linked Facebook Page asset.
-    let senderId = asset.externalAssetId;
-    let senderToken = asset.accessToken;
-
-    if (job.platform === "INSTAGRAM" && asset.instagramAccountId) {
-      // Find the Facebook Page asset that owns this IG account
-      const linkedPage = await db.connectedAsset.findFirst({
-        where: {
-          workspaceId: asset.workspaceId,
-          assetType: "FACEBOOK_PAGE",
-          instagramAccountId: asset.instagramAccountId,
-          isActive: true,
-        },
-      });
-      if (linkedPage) {
-        senderId = linkedPage.externalAssetId;
-        senderToken = linkedPage.accessToken;
-        console.log(`[IG DM] Using page ${senderId} instead of IG account ${asset.externalAssetId}`);
-      } else {
-        console.warn(`[IG DM] No linked Facebook Page found for IG account ${asset.externalAssetId}. DM may fail.`);
-      }
-    }
+    // IMPORTANT: For Instagram, the Send API targets the Instagram account ID on /messages.
+    // The stored access token is still the linked Page access token, but the object ID
+    // must remain the IG account ID for comment private replies to work.
+    const senderId = asset.externalAssetId;
+    const senderToken = asset.accessToken;
 
     const response = await sendMetaMessage({
       platform: job.platform as "FACEBOOK" | "INSTAGRAM",

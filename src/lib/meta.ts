@@ -27,12 +27,15 @@ export function buildMetaAuthUrl(state: string) {
     scope: [
       "pages_show_list",
       "pages_read_engagement",
+      "pages_manage_engagement",
       "pages_manage_metadata",
       "pages_messaging",
       "instagram_manage_comments",
       "instagram_manage_messages",
       "instagram_basic",
       "business_management",
+      "ads_management",
+      "ads_read",
     ].join(","),
   });
 
@@ -280,27 +283,57 @@ export async function sendMetaMessage(input: {
   accessToken: string;
 }) {
   if (input.commentId) {
+    if (input.platform === "INSTAGRAM") {
+      const messagesUrl = new URL(
+        `${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${input.pageOrIgId}/messages`
+      );
+      messagesUrl.searchParams.set("access_token", input.accessToken);
+
+      const privateReplyRes = await fetch(messagesUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: { comment_id: input.commentId },
+          message: { text: input.message },
+        }),
+      });
+
+      const privateReplyJson = await privateReplyRes.json();
+      if (!privateReplyRes.ok) {
+        throw new Error(
+          `Meta Instagram private reply error ${privateReplyRes.status}: ${JSON.stringify(
+            privateReplyJson
+          )}`
+        );
+      }
+
+      return privateReplyJson;
+    }
+
     const privateReplyUrl = new URL(
       `${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${input.commentId}/private_replies`
     );
     privateReplyUrl.searchParams.set("access_token", input.accessToken);
 
+    const formBody = new URLSearchParams({
+      message: input.message,
+    });
+
     const privateReplyRes = await fetch(privateReplyUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: input.message,
-      }),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formBody.toString(),
     });
 
     const privateReplyJson = await privateReplyRes.json();
     if (!privateReplyRes.ok) {
       throw new Error(
-        `Meta private reply error ${privateReplyRes.status}: ${JSON.stringify(
+        `Meta Facebook private reply error ${privateReplyRes.status}: ${JSON.stringify(
           privateReplyJson
         )}`
       );
     }
+
     return privateReplyJson;
   }
 
