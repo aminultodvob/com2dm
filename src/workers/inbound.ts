@@ -29,7 +29,38 @@ type MetaEntry = {
 type MetaPayload = {
   object?: string;
   entry?: MetaEntry[];
+  sample?: {
+    field?: string;
+    value?: Record<string, unknown>;
+  };
 };
+
+function normalizePayload(payload: MetaPayload): MetaPayload {
+  if (Array.isArray(payload.entry)) return payload;
+
+  if (payload.sample?.field && payload.sample?.value) {
+    return {
+      object: payload.object ?? "page",
+      entry: [
+        {
+          id: String(
+            (payload.sample.value["recipient"] as { id?: string } | undefined)?.id ??
+              (payload.sample.value["from"] as { id?: string } | undefined)?.id ??
+              ""
+          ),
+          changes: [
+            {
+              field: payload.sample.field,
+              value: payload.sample.value,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  return payload;
+}
 
 function resolveMatchedKeyword(
   rule: { matchMode: string; caseSensitive: boolean; keywords: { keyword: string }[] },
@@ -48,8 +79,11 @@ function resolveMatchedKeyword(
 
 function extractEvents(payload: MetaPayload): CommentEvent[] {
   const events: CommentEvent[] = [];
-  const object = payload?.object;
-  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+  const normalizedPayload = normalizePayload(payload);
+  const object = normalizedPayload?.object;
+  const entries = Array.isArray(normalizedPayload?.entry)
+    ? normalizedPayload.entry
+    : [];
 
   for (const entry of entries) {
     const entryId = entry?.id;

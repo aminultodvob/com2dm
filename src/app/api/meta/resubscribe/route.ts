@@ -43,8 +43,20 @@ export async function POST() {
 
       await db.connectedAsset.update({
         where: { id: asset.id },
-        data: { webhookSubscribed: fbOk },
+        data: { webhookSubscribed: fbOk || igOk },
       });
+
+      if (asset.instagramAccountId) {
+        await db.connectedAsset.updateMany({
+          where: {
+            workspaceId: ctx.workspace.id,
+            assetType: "INSTAGRAM_ACCOUNT",
+            externalAssetId: asset.instagramAccountId,
+            isActive: true,
+          },
+          data: { webhookSubscribed: igOk },
+        });
+      }
     } catch (err) {
       error = String(err);
       console.error(`[Resubscribe] Failed for asset ${asset.id}:`, err);

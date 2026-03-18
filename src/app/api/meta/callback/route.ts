@@ -111,6 +111,13 @@ export async function GET(req: Request) {
         webhookSubscribed: igSubscribed,
       });
       activeAssetIds.push(igAsset.id);
+
+      if (igSubscribed) {
+        await db.connectedAsset.update({
+          where: { id: pageAsset.id },
+          data: { webhookSubscribed: true },
+        });
+      }
     }
   }
 

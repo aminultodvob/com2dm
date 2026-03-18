@@ -29,7 +29,24 @@ type MetaEntry = {
 type MetaPayload = {
   object?: string;
   entry?: MetaEntry[];
+  sample?: {
+    field?: string;
+    value?: Record<string, unknown>;
+  };
 };
+
+type ParsedWebhookEvent =
+  | { type: "comment"; event: CommentEvent }
+  | {
+      type: "ignored";
+      platform: "FACEBOOK" | "INSTAGRAM";
+      postId: string;
+      commentId: string;
+      commenterId: string;
+      commenterName?: string;
+      commentText: string;
+      skippedReason: string;
+    };
 
 async function resolveAssetForEvent(event: CommentEvent) {
   if (event.platform === "FACEBOOK") {
@@ -91,10 +108,40 @@ function resolveMatchedKeyword(
   return undefined;
 }
 
-function extractEvents(payload: MetaPayload): CommentEvent[] {
-  const events: CommentEvent[] = [];
-  const object = payload?.object;
-  const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+function normalizePayload(payload: MetaPayload): MetaPayload {
+  if (Array.isArray(payload.entry)) return payload;
+
+  if (payload.sample?.field && payload.sample?.value) {
+    return {
+      object: payload.object ?? "page",
+      entry: [
+        {
+          id: String(
+            (payload.sample.value["recipient"] as { id?: string } | undefined)?.id ??
+              (payload.sample.value["from"] as { id?: string } | undefined)?.id ??
+              ""
+          ),
+          changes: [
+            {
+              field: payload.sample.field,
+              value: payload.sample.value,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  return payload;
+}
+
+function extractEvents(payload: MetaPayload): ParsedWebhookEvent[] {
+  const events: ParsedWebhookEvent[] = [];
+  const normalizedPayload = normalizePayload(payload);
+  const object = normalizedPayload?.object;
+  const entries = Array.isArray(normalizedPayload?.entry)
+    ? normalizedPayload.entry
+    : [];
 
   for (const entry of entries) {
     const entryId = entry?.id;
@@ -121,13 +168,28 @@ function extractEvents(payload: MetaPayload): CommentEvent[] {
       if (object === "page") {
         if (change?.field === "feed" && valueAny?.item === "comment") {
           events.push({
+            type: "comment",
+            event: {
+              platform: "FACEBOOK",
+              assetExternalId:
+                entryId ?? String(valueAny?.post_id ?? "").split("_")[0],
+              commentId,
+              postId,
+              commenterId: String(from?.id ?? valueAny?.sender_id ?? ""),
+              commenterName: from?.name ?? undefined,
+              commentText,
+            },
+          });
+        } else if (change?.field === "feed") {
+          events.push({
+            type: "ignored",
             platform: "FACEBOOK",
-            assetExternalId: entryId ?? String(valueAny?.post_id ?? "").split("_")[0],
-            commentId,
             postId,
+            commentId,
             commenterId: String(from?.id ?? valueAny?.sender_id ?? ""),
             commenterName: from?.name ?? undefined,
             commentText,
+            skippedReason: `unsupported_feed_item:${String(valueAny?.item ?? "unknown")}`,
           });
         }
       }
@@ -138,20 +200,41 @@ function extractEvents(payload: MetaPayload): CommentEvent[] {
           change?.field === "instagram_comments"
         ) {
           events.push({
+            type: "comment",
+            event: {
+              platform: "INSTAGRAM",
+              assetExternalId: entryId ?? String(from?.id ?? ""),
+              commentId,
+              postId,
+              commenterId: String(from?.id ?? ""),
+              commenterName: from?.username ?? undefined,
+              commentText,
+            },
+          });
+        } else if (
+          change?.field === "messages" ||
+          change?.field === "instagram_messages"
+        ) {
+          events.push({
+            type: "ignored",
             platform: "INSTAGRAM",
-            assetExternalId: entryId ?? String(from?.id ?? ""),
-            commentId,
             postId,
+            commentId,
             commenterId: String(from?.id ?? ""),
             commenterName: from?.username ?? undefined,
             commentText,
+            skippedReason: `unsupported_instagram_field:${change.field}`,
           });
         }
       }
     }
   }
 
-  return events.filter((event) => event.commentText && event.commenterId);
+  return events.filter((event) =>
+    event.type === "comment"
+      ? Boolean(event.event.commentText && event.event.commenterId)
+      : true
+  );
 }
 
 export async function processWebhookEvent(rawEventId: string) {
@@ -161,7 +244,27 @@ export async function processWebhookEvent(rawEventId: string) {
   try {
     const events = extractEvents(raw.payload as MetaPayload);
 
-    for (const event of events) {
+    for (const parsedEvent of events) {
+      if (parsedEvent.type === "ignored") {
+        if (raw.workspaceId) {
+          await db.triggerEventLog.create({
+            data: {
+              workspaceId: raw.workspaceId,
+              platform: parsedEvent.platform,
+              postId: parsedEvent.postId || "unknown",
+              commentId: parsedEvent.commentId || "unknown",
+              commenterId: parsedEvent.commenterId || "unknown",
+              commenterName: parsedEvent.commenterName ?? null,
+              commentText: parsedEvent.commentText,
+              wasMatched: false,
+              skippedReason: parsedEvent.skippedReason,
+            },
+          });
+        }
+        continue;
+      }
+
+      const event = parsedEvent.event;
       const asset = await resolveAssetForEvent(event);
 
       if (!asset) {

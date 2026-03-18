@@ -1,7 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Facebook,
@@ -54,6 +60,10 @@ export function ConnectedAssetsClient({
   const hasConnections = socialConnections.length > 0;
   const hasAssets = connectedAssets.length > 0;
 
+  const redirectToMetaAuth = () => {
+    window.location.href = metaAuthUrl;
+  };
+
   const handleDisconnect = async (assetId: string) => {
     try {
       const res = await fetch(`/api/connections/${assetId}`, {
@@ -72,16 +82,27 @@ export function ConnectedAssetsClient({
 
   const handleResubscribe = async () => {
     try {
-      toast({ title: "Resubscribing webhooks…", variant: "success" });
+      toast({ title: "Resubscribing webhooks...", variant: "success" });
       const res = await fetch("/api/meta/resubscribe", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        const results = data.resubscribed as { name: string; fb: boolean; ig: boolean; error?: string }[];
-        const failed = results.filter(r => r.error);
+        const results = data.resubscribed as Array<{
+          name: string;
+          fb: boolean;
+          ig: boolean;
+          error?: string;
+        }>;
+        const failed = results.filter((result) => result.error);
         if (failed.length === 0) {
-          toast({ title: `✅ ${results.length} page(s) resubscribed successfully`, variant: "success" });
+          toast({
+            title: `${results.length} page(s) resubscribed successfully`,
+            variant: "success",
+          });
         } else {
-          toast({ title: `⚠️ ${failed.length} page(s) failed. Check console.`, variant: "error" });
+          toast({
+            title: `${failed.length} page(s) failed. Check console.`,
+            variant: "error",
+          });
           console.error("Resubscribe failures:", failed);
         }
         window.location.reload();
@@ -95,7 +116,6 @@ export function ConnectedAssetsClient({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Connect Meta */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -113,7 +133,6 @@ export function ConnectedAssetsClient({
         </CardHeader>
         <CardContent>
           <div className="grid sm:grid-cols-2 gap-4">
-            {/* Facebook */}
             <div className="border border-border rounded-xl p-5 flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
@@ -126,15 +145,16 @@ export function ConnectedAssetsClient({
                   </p>
                 </div>
               </div>
-              <a href={metaAuthUrl}>
-                <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4" />
-                  Connect Facebook
-                </Button>
-              </a>
+              <Button
+                className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
+                onClick={redirectToMetaAuth}
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+                Connect Facebook
+              </Button>
             </div>
 
-            {/* Instagram */}
             <div className="border border-border rounded-xl p-5 flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
@@ -149,22 +169,21 @@ export function ConnectedAssetsClient({
                   </p>
                 </div>
               </div>
-              <a href={metaAuthUrl}>
-                <Button
-                  className="w-full gap-2"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)",
-                  }}
-                >
-                  <Plus className="w-4 h-4" />
-                  Connect Instagram
-                </Button>
-              </a>
+              <Button
+                className="w-full gap-2"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)",
+                }}
+                onClick={redirectToMetaAuth}
+                type="button"
+              >
+                <Plus className="w-4 h-4" />
+                Connect Instagram
+              </Button>
             </div>
           </div>
 
-          {/* Info box */}
           <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-100 flex gap-3">
             <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
             <div className="text-sm text-amber-800">
@@ -180,7 +199,6 @@ export function ConnectedAssetsClient({
         </CardContent>
       </Card>
 
-      {/* Connected assets */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -188,30 +206,37 @@ export function ConnectedAssetsClient({
               <CardTitle>Connected Accounts</CardTitle>
               <CardDescription>
                 {hasAssets
-                  ? `${connectedAssets.length} account${connectedAssets.length !== 1 ? "s" : ""} connected`
+                  ? `${connectedAssets.length} account${
+                      connectedAssets.length !== 1 ? "s" : ""
+                    } connected`
                   : "No accounts connected yet"}
               </CardDescription>
             </div>
-          {hasConnections && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={handleResubscribe}
-                title="Re-subscribe all pages to Meta webhooks with correct fields"
-              >
-                <Webhook className="w-3.5 h-3.5" />
-                Fix Webhooks
-              </Button>
-              <a href={metaAuthUrl}>
-                <Button variant="outline" size="sm" className="gap-2">
+            {hasConnections && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleResubscribe}
+                  type="button"
+                  title="Re-subscribe all pages to Meta webhooks with correct fields"
+                >
+                  <Webhook className="w-3.5 h-3.5" />
+                  Fix Webhooks
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={redirectToMetaAuth}
+                  type="button"
+                >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Reconnect
                 </Button>
-              </a>
-            </div>
-          )}
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -235,7 +260,6 @@ export function ConnectedAssetsClient({
                   key={asset.id}
                   className="flex items-center gap-4 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors"
                 >
-                  {/* Avatar */}
                   <div className="w-10 h-10 rounded-xl overflow-hidden bg-muted flex items-center justify-center shrink-0">
                     {asset.pictureUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -251,7 +275,6 @@ export function ConnectedAssetsClient({
                     )}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-foreground text-sm">
@@ -301,13 +324,13 @@ export function ConnectedAssetsClient({
                     </p>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="text-muted-foreground hover:text-foreground w-8 h-8"
                       title="View on Meta"
+                      type="button"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                     </Button>
@@ -317,6 +340,7 @@ export function ConnectedAssetsClient({
                       className="text-muted-foreground hover:text-destructive w-8 h-8"
                       onClick={() => handleDisconnect(asset.id)}
                       title="Disconnect"
+                      type="button"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -330,5 +354,3 @@ export function ConnectedAssetsClient({
     </div>
   );
 }
-
-
