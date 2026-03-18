@@ -7,13 +7,15 @@ import Link from "next/link";
 import {
   MessageCircle,
   Zap,
-  TrendingUp,
   Link2,
   ArrowRight,
   CheckCircle,
   AlertCircle,
+  Instagram,
+  Facebook,
+  Target,
 } from "lucide-react";
-import { formatNumber, timeAgo } from "@/lib/utils";
+import { formatNumber, timeAgo, truncate } from "@/lib/utils";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -23,9 +25,11 @@ async function getDashboardStats(workspaceId: string) {
     totalRules,
     activeRules,
     connections,
+    totalComments,
     totalSent,
     totalFailed,
     recentLogs,
+    recentComments,
   ] = await Promise.all([
     db.automationRule.count({
       where: { workspaceId, deletedAt: null },
@@ -35,6 +39,9 @@ async function getDashboardStats(workspaceId: string) {
     }),
     db.connectedAsset.count({
       where: { workspaceId, isActive: true },
+    }),
+    db.triggerEventLog.count({
+      where: { workspaceId },
     }),
     db.messageDeliveryLog.count({
       where: { workspaceId, status: "SENT" },
@@ -47,9 +54,23 @@ async function getDashboardStats(workspaceId: string) {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    db.triggerEventLog.findMany({
+      where: { workspaceId },
+      orderBy: { processedAt: "desc" },
+      take: 8,
+    }),
   ]);
 
-  return { totalRules, activeRules, connections, totalSent, totalFailed, recentLogs };
+  return {
+    totalRules,
+    activeRules,
+    connections,
+    totalComments,
+    totalSent,
+    totalFailed,
+    recentLogs,
+    recentComments,
+  };
 }
 
 export default async function DashboardOverviewPage() {
@@ -85,12 +106,12 @@ export default async function DashboardOverviewPage() {
       sub: "Facebook & Instagram",
     },
     {
-      title: "Failed Sends",
-      value: formatNumber(stats.totalFailed),
-      icon: TrendingUp,
-      color: "text-rose-600",
-      bg: "bg-rose-50",
-      sub: "Need attention",
+      title: "Comments Seen",
+      value: formatNumber(stats.totalComments),
+      icon: Target,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      sub: `${formatNumber(stats.totalFailed)} failed sends`,
     },
   ];
 
@@ -299,6 +320,80 @@ export default async function DashboardOverviewPage() {
           </Card>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Recent Comments</CardTitle>
+            <Link href="/dashboard/logs">
+              <Button variant="ghost" size="sm">
+                View logs <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {stats.recentComments.length === 0 ? (
+            <div className="text-center py-10">
+              <MessageCircle className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">
+                No Facebook or Instagram comments received yet.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Incoming comments will appear here with match status.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {stats.recentComments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="flex items-start gap-3 py-3 border-b border-border last:border-0"
+                >
+                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    {comment.platform === "INSTAGRAM" ? (
+                      <Instagram className="w-4 h-4 text-pink-500" />
+                    ) : (
+                      <Facebook className="w-4 h-4 text-blue-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground">
+                        {comment.commenterName ?? "Unknown"}
+                      </p>
+                      <Badge variant="outline" className="text-xs">
+                        {comment.platform === "INSTAGRAM" ? "Instagram" : "Facebook"}
+                      </Badge>
+                      <Badge
+                        variant={comment.wasMatched ? "success" : "secondary"}
+                        className="text-xs"
+                      >
+                        {comment.wasMatched ? "Matched" : "Ignored"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-foreground mt-1">
+                      {truncate(comment.commentText, 160)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {comment.matchedKeyword
+                        ? `Keyword: ${comment.matchedKeyword}`
+                        : comment.skippedReason
+                          ? `Reason: ${comment.skippedReason.replaceAll("_", " ")}`
+                          : "No keyword match"}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      {timeAgo(comment.processedAt)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
