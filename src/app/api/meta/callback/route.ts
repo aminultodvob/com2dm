@@ -90,7 +90,9 @@ export async function GET(req: Request) {
 
       let igSubscribed = false;
       try {
-        const resp = await subscribeInstagram(ig.id, page.access_token);
+        // IMPORTANT: subscribeInstagram calls /subscribed_apps on the FACEBOOK PAGE (not IG account).
+        // Instagram webhooks are delivered via the linked Page's subscription with IG-specific fields.
+        const resp = await subscribeInstagram(page.id, page.access_token);
         igSubscribed = resp.success === true;
       } catch {
         igSubscribed = false;

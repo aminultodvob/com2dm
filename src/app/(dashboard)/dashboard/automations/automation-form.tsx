@@ -37,7 +37,7 @@ type Post = {
 
 function normalizeKeywords(input: string) {
   return input
-    .split(/[,\\n]/)
+    .split(/[,\n]/)
     .map((kw) => kw.trim())
     .filter(Boolean);
 }
@@ -98,7 +98,7 @@ export function AutomationForm({
       const data = await res.json();
       setRecentPosts(data.posts || []);
       setShowPostModal(true);
-    } catch (e) {
+    } catch {
       toast({ title: "Failed to load recent posts from Meta", variant: "error" });
     } finally {
       setIsFetchingPosts(false);

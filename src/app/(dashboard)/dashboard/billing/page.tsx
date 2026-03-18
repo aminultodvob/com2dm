@@ -10,6 +10,7 @@ import {
   Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getOrCreateUsage } from "@/lib/usage";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Billing" };
@@ -18,6 +19,11 @@ export default async function BillingPage() {
   const { workspace } = await requireWorkspace();
   const subscription = workspace.subscription;
   const plan = subscription?.tier ?? "FREE";
+  
+  const usage = await getOrCreateUsage(workspace.id);
+  const limit = plan === 'FREE' ? 100 : plan === 'STARTER' ? 1000 : 10000;
+  const used = usage.messagesSent;
+  const percentage = Math.min(100, Math.max(0, (used / limit) * 100));
   
   const plans = [
     {
@@ -81,10 +87,10 @@ export default async function BillingPage() {
             <div className="flex items-center gap-3 shrink-0">
               <div className="text-right mr-2 hidden sm:block">
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Monthly Usage</p>
-                <p className="text-lg font-black text-foreground">142 / {plan === 'FREE' ? '100' : plan === 'STARTER' ? '1,000' : '10,000'}</p>
+                <p className="text-lg font-black text-foreground">{used} / {limit.toLocaleString()}</p>
               </div>
               <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all" style={{ width: '14.2%' }} />
+                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${percentage}%` }} />
               </div>
             </div>
           </div>

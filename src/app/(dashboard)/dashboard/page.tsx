@@ -217,7 +217,7 @@ export default async function DashboardOverviewPage() {
                         {log.recipientName ?? "Unknown"}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        Keyword: {log.matchedKeyword ?? "-"} �-{" "}
+                        Keyword: {log.matchedKeyword ?? "-"} &middot;{" "}
                         {log.platform.toLowerCase()}
                       </p>
                     </div>

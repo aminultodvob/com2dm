@@ -133,20 +133,39 @@ export async function fetchInstagramMedia(igId: string, accessToken: string) {
 export async function subscribePage(pageId: string, accessToken: string) {
   const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
   url.searchParams.set("access_token", accessToken);
-  // 'comments' is not a valid Page field. 'feed' handles comments.
-  url.searchParams.set("subscribed_fields", "feed,messages,messaging_postbacks");
+  // 'feed' covers FB comments. 'instagram_business_account' + 'instagram_manage_messages' ensure
+  // IG comment/dm webhooks are delivered to this page's webhook subscription.
+  url.searchParams.set(
+    "subscribed_fields",
+    "feed,messages,messaging_postbacks,instagram_business_account"
+  );
   const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Meta subscribe error ${res.status}: ${text}`);
+    throw new Error(`Meta subscribe page error ${res.status}: ${text}`);
   }
   return res.json() as Promise<{ success: boolean }>;
 }
 
-export async function subscribeInstagram(igId: string, accessToken: string) {
-  // Instagram specific accounts do not have a /subscribed_apps edge.
-  // Their webhooks are configured at the App Dashboard level under the "Instagram" topic.
-  return { success: true };
+/**
+ * Subscribe a Facebook Page for Instagram webhooks.
+ * Instagram comment/DM webhooks are delivered via the linked Facebook Page's subscription.
+ * We call /subscribed_apps on the PAGE (not the IG account) with instagram-specific fields.
+ */
+export async function subscribeInstagram(pageId: string, accessToken: string) {
+  const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
+  url.searchParams.set("access_token", accessToken);
+  // These fields are required for Instagram comment + message webhook delivery.
+  url.searchParams.set(
+    "subscribed_fields",
+    "feed,messages,messaging_postbacks,instagram_business_account,comments"
+  );
+  const res = await fetch(url, { method: "POST" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Meta subscribe Instagram error ${res.status}: ${text}`);
+  }
+  return res.json() as Promise<{ success: boolean }>;
 }
 
 export async function upsertSocialConnection(input: {
@@ -233,8 +252,14 @@ export async function upsertConnectedAsset(input: {
 
 export async function sendMetaMessage(input: {
   platform: "FACEBOOK" | "INSTAGRAM";
+  /**
+   * For FACEBOOK: the Page ID.
+   * For INSTAGRAM: also the Facebook Page ID (NOT the IG account ID).
+   * Instagram DMs must be sent via POST /{page_id}/messages with the page access token.
+   */
   pageOrIgId: string;
   recipientId: string;
+  commentId?: string; // Add optional commentId for Private Replies
   message: string;
   accessToken: string;
 }) {
@@ -243,13 +268,23 @@ export async function sendMetaMessage(input: {
   );
   url.searchParams.set("access_token", input.accessToken);
 
+  // If commentId is provided, we use the Private Replies feature by specifying comment_id instead of id
+  const recipient = input.commentId ? { comment_id: input.commentId } : { id: input.recipientId };
+  
+  const body: Record<string, unknown> = {
+    recipient,
+    message: { text: input.message },
+  };
+
+  // Instagram DMs require messaging_type field
+  if (input.platform === "INSTAGRAM") {
+    body.messaging_type = "RESPONSE";
+  }
+
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      recipient: { id: input.recipientId },
-      message: { text: input.message },
-    }),
+    body: JSON.stringify(body),
   });
 
   const json = await res.json();

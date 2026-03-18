@@ -17,12 +17,34 @@ async function processOutbound(jobId: string, assetId: string) {
   if (!asset) return;
 
   try {
+    // IMPORTANT: For Instagram, DMs must be sent via the linked Facebook Page's endpoint:
+    //   POST /{page_id}/messages  (with page access token)
+    // We find the linked Facebook Page asset to get the correct page ID and token.
+    let senderId = asset.externalAssetId;
+    let senderToken = asset.accessToken;
+
+    if (job.platform === "INSTAGRAM" && asset.instagramAccountId) {
+      const linkedPage = await db.connectedAsset.findFirst({
+        where: {
+          workspaceId: asset.workspaceId,
+          assetType: "FACEBOOK_PAGE",
+          instagramAccountId: asset.instagramAccountId,
+          isActive: true,
+        },
+      });
+      if (linkedPage) {
+        senderId = linkedPage.externalAssetId;
+        senderToken = linkedPage.accessToken;
+        console.log(`[IG DM worker] Using page ${senderId} instead of IG account ${asset.externalAssetId}`);
+      }
+    }
+
     const response = await sendMetaMessage({
       platform: job.platform as "FACEBOOK" | "INSTAGRAM",
-      pageOrIgId: asset.externalAssetId,
+      pageOrIgId: senderId,
       recipientId: job.recipientId,
       message: job.messageBody,
-      accessToken: asset.accessToken,
+      accessToken: senderToken,
     });
 
     await db.outboundMessageJob.update({

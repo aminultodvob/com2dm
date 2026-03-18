@@ -40,28 +40,37 @@ export async function POST(req: NextRequest) {
     console.log("META WEBHOOK RECEIVED PAYLOAD:", JSON.stringify(payload, null, 2));
 
     const entryId = Array.isArray(payload?.entry) ? payload.entry[0]?.id : null;
-    console.log("ENTRY ID:", entryId);
-    const asset = entryId
-      ? await db.connectedAsset.findFirst({
-          where: { externalAssetId: entryId, isActive: true },
-        })
-      : null;
-    
+    const isInstagram = payload?.object === "instagram";
+    console.log("ENTRY ID:", entryId, "| Platform:", isInstagram ? "instagram" : "facebook/page");
+
+    let asset = null;
+    if (entryId) {
+      // For Facebook: entry.id = Page ID → matches FACEBOOK_PAGE asset
+      // For Instagram: entry.id = IG Business Account ID → matches INSTAGRAM_ACCOUNT asset
+      asset = await db.connectedAsset.findFirst({
+        where: { externalAssetId: entryId, isActive: true },
+      });
+
+      // If still not found (edge case), try finding the FB page that has this instagramAccountId
+      if (!asset && isInstagram) {
+        asset = await db.connectedAsset.findFirst({
+          where: { instagramAccountId: entryId, assetType: "FACEBOOK_PAGE", isActive: true },
+        });
+      }
+    }
+
     // 1. Store raw event for auditing
     const rawEvent = await db.webhookEventRaw.create({
       data: {
-        platform: payload.object === "instagram" ? "INSTAGRAM" : "FACEBOOK",
+        platform: isInstagram ? "INSTAGRAM" : "FACEBOOK",
         eventType: "raw",
         workspaceId: asset?.workspaceId ?? null,
         payload,
       }
     });
 
-    // 2. Process webhook synchronously/fire-and-forget (Serverless Architecture)
+    // 2. Process webhook (awaited to ensure it runs before Vercel serverless function closes)
     try {
-      // Execute the processing without awaiting it immediately if possible
-      // to return 200 OK fast. But on Vercel, isolated promises might die. 
-      // Awaiting it is safe enough since DM logic usually takes < 2 seconds.
       await processWebhookEvent(rawEvent.id);
     } catch (processingError) {
       console.error("Serverless processing failed:", processingError);

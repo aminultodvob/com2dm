@@ -217,7 +217,7 @@ model ConnectedAsset {
   username             String?
   pictureUrl           String?
   accessToken          String    @db.Text // page-level access token
-  instagramAccountId   String?  // linked IG business account ID
+  instagramAccountId   String?            // linked IG business account ID
   isActive             Boolean   @default(true)
   webhookSubscribed    Boolean   @default(false)
   createdAt            DateTime  @default(now())

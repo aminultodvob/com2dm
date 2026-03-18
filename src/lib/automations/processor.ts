@@ -3,6 +3,7 @@ import { findMatchingRules } from "@/lib/automations/engine";
 import { generateIdempotencyKey } from "@/lib/utils";
 import { incrementUsage, getPlanLimit, getOrCreateUsage } from "@/lib/usage";
 import { sendMetaMessage } from "@/lib/meta";
+import { Prisma } from "@prisma/client";
 
 type CommentEvent = {
   platform: "FACEBOOK" | "INSTAGRAM";
@@ -145,7 +146,14 @@ export async function processWebhookEvent(rawEventId: string) {
       const limit = getPlanLimit(asset.workspace.subscription?.tier ?? "FREE");
 
       for (const rule of rules) {
-        const matchedKeyword = resolveMatchedKeyword(rule as any, event.commentText);
+        const matchedKeyword = resolveMatchedKeyword(
+          {
+            matchMode: rule.matchMode,
+            caseSensitive: rule.caseSensitive,
+            keywords: rule.keywords,
+          },
+          event.commentText
+        );
 
         await db.triggerEventLog.create({
           data: {
@@ -288,12 +296,39 @@ async function processOutboundMessage(jobId: string, assetId: string) {
   if (!asset) return;
 
   try {
+    // IMPORTANT: For Instagram, DMs must be sent via the linked Facebook Page's endpoint:
+    //   POST /{page_id}/messages  (with page access token)
+    // The IG asset's externalAssetId is the IG Account ID, NOT the page ID.
+    // We resolve the correct page ID + token from the linked Facebook Page asset.
+    let senderId = asset.externalAssetId;
+    let senderToken = asset.accessToken;
+
+    if (job.platform === "INSTAGRAM" && asset.instagramAccountId) {
+      // Find the Facebook Page asset that owns this IG account
+      const linkedPage = await db.connectedAsset.findFirst({
+        where: {
+          workspaceId: asset.workspaceId,
+          assetType: "FACEBOOK_PAGE",
+          instagramAccountId: asset.instagramAccountId,
+          isActive: true,
+        },
+      });
+      if (linkedPage) {
+        senderId = linkedPage.externalAssetId;
+        senderToken = linkedPage.accessToken;
+        console.log(`[IG DM] Using page ${senderId} instead of IG account ${asset.externalAssetId}`);
+      } else {
+        console.warn(`[IG DM] No linked Facebook Page found for IG account ${asset.externalAssetId}. DM may fail.`);
+      }
+    }
+
     const response = await sendMetaMessage({
       platform: job.platform as "FACEBOOK" | "INSTAGRAM",
-      pageOrIgId: asset.externalAssetId,
+      pageOrIgId: senderId,
       recipientId: job.recipientId,
+      commentId: job.commentId ?? undefined,
       message: job.messageBody,
-      accessToken: asset.accessToken,
+      accessToken: senderToken,
     });
 
     await db.outboundMessageJob.update({
@@ -310,7 +345,7 @@ async function processOutboundMessage(jobId: string, assetId: string) {
       data: {
         status: "SENT",
         sentAt: new Date(),
-        apiResponse: response as any,
+        apiResponse: response as Prisma.InputJsonObject,
       },
     });
 

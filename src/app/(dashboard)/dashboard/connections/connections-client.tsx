@@ -13,6 +13,8 @@ import {
   Trash2,
   RefreshCw,
   Plus,
+  Webhook,
+  XCircle,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
@@ -62,6 +64,29 @@ export function ConnectedAssetsClient({
         window.location.reload();
       } else {
         toast({ title: "Failed to disconnect", variant: "error" });
+      }
+    } catch {
+      toast({ title: "Something went wrong", variant: "error" });
+    }
+  };
+
+  const handleResubscribe = async () => {
+    try {
+      toast({ title: "Resubscribing webhooks…", variant: "success" });
+      const res = await fetch("/api/meta/resubscribe", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        const results = data.resubscribed as { name: string; fb: boolean; ig: boolean; error?: string }[];
+        const failed = results.filter(r => r.error);
+        if (failed.length === 0) {
+          toast({ title: `✅ ${results.length} page(s) resubscribed successfully`, variant: "success" });
+        } else {
+          toast({ title: `⚠️ ${failed.length} page(s) failed. Check console.`, variant: "error" });
+          console.error("Resubscribe failures:", failed);
+        }
+        window.location.reload();
+      } else {
+        toast({ title: "Resubscribe failed", variant: "error" });
       }
     } catch {
       toast({ title: "Something went wrong", variant: "error" });
@@ -167,12 +192,26 @@ export function ConnectedAssetsClient({
                   : "No accounts connected yet"}
               </CardDescription>
             </div>
-            {hasConnections && (
-              <Button variant="outline" size="sm" className="gap-2">
-                <RefreshCw className="w-3.5 h-3.5" />
-                Sync
+          {hasConnections && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleResubscribe}
+                title="Re-subscribe all pages to Meta webhooks with correct fields"
+              >
+                <Webhook className="w-3.5 h-3.5" />
+                Fix Webhooks
               </Button>
-            )}
+              <a href={metaAuthUrl}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Reconnect
+                </Button>
+              </a>
+            </div>
+          )}
           </div>
         </CardHeader>
         <CardContent>
@@ -240,9 +279,15 @@ export function ConnectedAssetsClient({
                           Inactive
                         </Badge>
                       )}
-                      {asset.webhookSubscribed && (
+                      {asset.webhookSubscribed ? (
                         <Badge variant="success" className="text-xs">
+                          <CheckCircle className="w-3 h-3 mr-1" />
                           Webhook OK
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning" className="text-xs">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Webhook Unset
                         </Badge>
                       )}
                     </div>
