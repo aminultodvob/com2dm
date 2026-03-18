@@ -61,13 +61,23 @@ function extractEvents(payload: MetaPayload): CommentEvent[] {
       const from = valueAny["from"] as
         | { id?: string; name?: string; username?: string }
         | undefined;
+      const post = valueAny["post"] as { id?: string } | undefined;
+      const media = valueAny["media"] as { id?: string } | undefined;
+      const commentId = String(valueAny["comment_id"] ?? valueAny["id"] ?? "");
+      const postId = String(
+        valueAny["post_id"] ??
+          valueAny["media_id"] ??
+          post?.id ??
+          media?.id ??
+          ""
+      );
       if (object === "page") {
         if (change?.field === "feed" && valueAny?.item === "comment") {
           events.push({
             platform: "FACEBOOK",
             assetExternalId: entryId ?? String(valueAny?.post_id ?? "").split("_")[0],
-            commentId: String(valueAny?.comment_id ?? ""),
-            postId: String(valueAny?.post_id ?? ""),
+            commentId,
+            postId,
             commenterId: String(from?.id ?? valueAny?.sender_id ?? ""),
             commenterName: from?.name ?? undefined,
             commentText: String(valueAny?.message ?? ""),
@@ -76,12 +86,15 @@ function extractEvents(payload: MetaPayload): CommentEvent[] {
       }
 
       if (object === "instagram") {
-        if (change?.field === "comments") {
+        if (
+          change?.field === "comments" ||
+          change?.field === "instagram_comments"
+        ) {
           events.push({
             platform: "INSTAGRAM",
             assetExternalId: entryId ?? String(from?.id ?? ""),
-            commentId: String(valueAny?.id ?? ""),
-            postId: String(valueAny?.media_id ?? ""),
+            commentId,
+            postId,
             commenterId: String(from?.id ?? ""),
             commenterName: from?.username ?? undefined,
             commentText: String(valueAny?.text ?? ""),

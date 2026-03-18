@@ -133,12 +133,7 @@ export async function fetchInstagramMedia(igId: string, accessToken: string) {
 export async function subscribePage(pageId: string, accessToken: string) {
   const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
   url.searchParams.set("access_token", accessToken);
-  // 'feed' covers FB comments. 'instagram_business_account' + 'instagram_manage_messages' ensure
-  // IG comment/dm webhooks are delivered to this page's webhook subscription.
-  url.searchParams.set(
-    "subscribed_fields",
-    "feed,messages,messaging_postbacks,instagram_business_account"
-  );
+  url.searchParams.set("subscribed_fields", "feed,messages,messaging_postbacks");
   const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
     const text = await res.text();
@@ -155,10 +150,9 @@ export async function subscribePage(pageId: string, accessToken: string) {
 export async function subscribeInstagram(pageId: string, accessToken: string) {
   const url = new URL(`${GRAPH_BASE}/${env.META_GRAPH_API_VERSION}/${pageId}/subscribed_apps`);
   url.searchParams.set("access_token", accessToken);
-  // These fields are required for Instagram comment + message webhook delivery.
   url.searchParams.set(
     "subscribed_fields",
-    "feed,messages,messaging_postbacks,instagram_business_account,comments"
+    "instagram_comments,instagram_mentions,instagram_messages"
   );
   const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
