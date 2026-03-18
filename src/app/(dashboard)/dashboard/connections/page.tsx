@@ -14,7 +14,7 @@ export default async function ConnectionsPage() {
       orderBy: { connectedAt: "desc" },
     }),
     db.connectedAsset.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId: workspace.id, isActive: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
