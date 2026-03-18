@@ -112,8 +112,17 @@ function normalizePayload(payload: MetaPayload): MetaPayload {
   if (Array.isArray(payload.entry)) return payload;
 
   if (payload.sample?.field && payload.sample?.value) {
+    const inferredObject =
+      payload.object ??
+      (payload.sample.field === "comments" ||
+      payload.sample.field === "instagram_comments" ||
+      payload.sample.field === "messages" ||
+      payload.sample.field === "instagram_messages"
+        ? "instagram"
+        : "page");
+
     return {
-      object: payload.object ?? "page",
+      object: inferredObject,
       entry: [
         {
           id: String(
@@ -199,11 +208,26 @@ function extractEvents(payload: MetaPayload): ParsedWebhookEvent[] {
           change?.field === "comments" ||
           change?.field === "instagram_comments"
         ) {
+          const assetExternalId = entryId?.trim();
+          if (!assetExternalId) {
+            events.push({
+              type: "ignored",
+              platform: "INSTAGRAM",
+              postId,
+              commentId,
+              commenterId: String(from?.id ?? ""),
+              commenterName: from?.username ?? undefined,
+              commentText,
+              skippedReason: "sample_missing_instagram_account_id",
+            });
+            continue;
+          }
+
           events.push({
             type: "comment",
             event: {
               platform: "INSTAGRAM",
-              assetExternalId: entryId ?? String(from?.id ?? ""),
+              assetExternalId,
               commentId,
               postId,
               commenterId: String(from?.id ?? ""),

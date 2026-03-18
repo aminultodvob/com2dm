@@ -39,8 +39,18 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     console.log("META WEBHOOK RECEIVED PAYLOAD:", JSON.stringify(payload, null, 2));
 
+    const sampleField =
+      typeof payload?.sample?.field === "string" ? payload.sample.field : null;
+    const inferredObject =
+      payload?.object ??
+      (sampleField === "comments" ||
+      sampleField === "instagram_comments" ||
+      sampleField === "messages" ||
+      sampleField === "instagram_messages"
+        ? "instagram"
+        : undefined);
     const entryId = Array.isArray(payload?.entry) ? payload.entry[0]?.id : null;
-    const isInstagram = payload?.object === "instagram";
+    const isInstagram = inferredObject === "instagram";
     console.log("ENTRY ID:", entryId, "| Platform:", isInstagram ? "instagram" : "facebook/page");
 
     let asset = null;
